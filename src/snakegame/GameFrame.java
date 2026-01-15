@@ -1,33 +1,20 @@
-
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package snakegame;
 
 import javax.swing.JFrame;
 
 /**
- *
- * @author 90546
+ * Main game window frame for the Snake game.
+ * Sets up the window properties and contains the game panel.
  */
 public class GameFrame extends JFrame {
-    
-    GameFrame() {
-        
-        // GamePanel gPanel = new GamePanel();
-        // this.add(gPanel);
-        // Shortcut for the above is shown below
-        
+
+    public GameFrame() {
         this.add(new GamePanel());
-       
-        this.setTitle("Snake");
+        this.setTitle("Snake Game");
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         this.setResizable(false);
         this.pack();
+        this.setLocationRelativeTo(null);
         this.setVisible(true);
-        this.setLocationRelativeTo(null); // Centers the window on the screen
-        
     }
-    
 }

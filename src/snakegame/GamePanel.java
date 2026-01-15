@@ -1,257 +1,270 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package snakegame;
 
-import java.awt.*;
-import java.awt.event.*;
-import java.io.File;
-import java.io.IOException;
-import javax.swing.*;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.util.Random;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.sound.sampled.AudioInputStream;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.Clip;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.UnsupportedAudioFileException;
-
+import javax.swing.ImageIcon;
 import javax.swing.JPanel;
-// Game constants
+import javax.swing.Timer;
+
+/**
+ * Main game panel that handles rendering, game logic, and user input.
+ * Contains the snake movement, collision detection, and scoring system.
+ */
 public class GamePanel extends JPanel implements ActionListener {
 
-    static final int SCREEN_WIDTH = 1300;
-    static final int SCREEN_HEIGHT = 750;
-    static final int UNIT_SIZE = 50;
-    static final int GAME_UNITS = (SCREEN_HEIGHT * SCREEN_WIDTH) / UNIT_SIZE;
-    static final int DELAY = 95;
-    final int x[] = new int[GAME_UNITS];
-    final int y[] = new int[GAME_UNITS];
-    int bodyParts = 6;
-    int applesEaten;
-    int highScore;
-    int appleX;
-    int appleY;
-    char direction = 'R';
-    boolean running = false;
-    Timer timer;
-    Random random;
-    private Clip clip;
+    // Game dimensions
+    private static final int SCREEN_WIDTH = 1300;
+    private static final int SCREEN_HEIGHT = 750;
+    private static final int UNIT_SIZE = 50;
+    private static final int GAME_UNITS = (SCREEN_HEIGHT * SCREEN_WIDTH) / (UNIT_SIZE * UNIT_SIZE);
+    private static final int GAME_DELAY_MS = 95;
 
-    GamePanel() {
-        random = new Random();
+    // Asset paths
+    private static final String APPLE_IMAGE_PATH = "assets/images/apple.png";
+    private static final String SNAKE_HEAD_IMAGE_PATH = "assets/images/snake.png";
+    private static final String BACKGROUND_MUSIC_PATH = "assets/sounds/background.wav";
+    private static final String EAT_SOUND_PATH = "assets/sounds/eat.wav";
+    private static final String GAME_OVER_SOUND_PATH = "assets/sounds/game_over.wav";
+
+    // Snake position arrays
+    private final int[] snakeX = new int[GAME_UNITS];
+    private final int[] snakeY = new int[GAME_UNITS];
+
+    // Game state
+    private int bodyParts = 6;
+    private int applesEaten = 0;
+    private int highScore = 0;
+    private int appleX;
+    private int appleY;
+    private char direction = 'R';
+    private boolean running = false;
+
+    // Game components
+    private Timer gameTimer;
+    private final Random random;
+    private final AudioManager audioManager;
+
+    // Cached images for performance
+    private Image appleImage;
+    private Image snakeHeadImage;
+
+    public GamePanel() {
+        this.random = new Random();
+        this.audioManager = new AudioManager();
+        
         this.setPreferredSize(new Dimension(SCREEN_WIDTH, SCREEN_HEIGHT));
-        this.setBackground(Color.black);
+        this.setBackground(Color.BLACK);
         this.setFocusable(true);
-        this.addKeyListener(new MyKeyAdapter());
+        this.addKeyListener(new GameKeyAdapter());
+        
+        loadImages();
         startGame();
     }
 
-    public void startGame() {
-        newApple();
-        running = true;
-        timer = new Timer(DELAY, this);
-        timer.start();
-        playSound("bckground.wav");
-        resetSnake(); // Reset the snake's starting position
-        resetScore();
+    /**
+     * Pre-loads and scales images for better performance.
+     */
+    private void loadImages() {
+        ImageIcon appleIcon = new ImageIcon(APPLE_IMAGE_PATH);
+        appleImage = appleIcon.getImage().getScaledInstance(UNIT_SIZE, UNIT_SIZE, Image.SCALE_SMOOTH);
+
+        ImageIcon snakeIcon = new ImageIcon(SNAKE_HEAD_IMAGE_PATH);
+        snakeHeadImage = snakeIcon.getImage().getScaledInstance(UNIT_SIZE, UNIT_SIZE, Image.SCALE_SMOOTH);
     }
 
+    /**
+     * Initializes and starts a new game.
+     */
+    public void startGame() {
+        resetSnake();
+        resetScore();
+        spawnApple();
+        running = true;
+        gameTimer = new Timer(GAME_DELAY_MS, this);
+        gameTimer.start();
+        audioManager.playBackgroundMusic(BACKGROUND_MUSIC_PATH);
+    }
+
+    @Override
     public void paintComponent(Graphics g) {
         super.paintComponent(g);
-        try {
-            draw(g);
-        } catch (IOException ex) {
-            Logger.getLogger(GamePanel.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        draw(g);
     }
 
-    public void draw(Graphics g) throws IOException {
+    /**
+     * Renders the game state to the screen.
+     */
+    private void draw(Graphics g) {
         if (running) {
-            ImageIcon imageIcon = new ImageIcon("apple.png"); // Load the image to an ImageIcon
-            Image image = imageIcon.getImage(); // Transform it
-            Image newImg = image.getScaledInstance(UNIT_SIZE, UNIT_SIZE, java.awt.Image.SCALE_SMOOTH); // Scale it smoothly
-            imageIcon = new ImageIcon(newImg); // Transform it back
-
-            imageIcon.paintIcon(this, g, appleX, appleY);
-
-            for (int i = 0; i < bodyParts; i++) {
-                if (i == 0) {
-                    ImageIcon imageIcon2 = new ImageIcon("snake.png");
-                    Image image2 = imageIcon2.getImage(); // Transform it
-                    Image newImg2 = image2.getScaledInstance(UNIT_SIZE, UNIT_SIZE, java.awt.Image.SCALE_SMOOTH); // Scale it smoothly
-                    imageIcon2 = new ImageIcon(newImg2); // Transform it back
-                    imageIcon2.paintIcon(this, g, x[i], y[i]);
-                } else {
-                    g.setColor(new Color(random.nextInt(255), random.nextInt(255), random.nextInt(255)));
-                    g.fillRect(x[i], y[i], UNIT_SIZE, UNIT_SIZE);
-                }
-            }
-            g.setColor(Color.red);
-            g.setFont(new Font("Ink Free", Font.BOLD, 40));
-            FontMetrics metrics = getFontMetrics(g.getFont());
-            g.drawString("Score: " + applesEaten, (SCREEN_WIDTH - metrics.stringWidth("Score: " + applesEaten)) / 2, g.getFont().getSize());
-            g.setColor(Color.blue);
-            g.setFont(new Font("Ink Free", Font.ITALIC, 20));
-            FontMetrics metrics1 = getFontMetrics(g.getFont());
-            g.drawString("High Score: " + highScore, SCREEN_WIDTH - 130, SCREEN_HEIGHT - (SCREEN_HEIGHT - 30));
+            drawGame(g);
         } else {
-            running = false;
-            gameOver(g);
+            drawGameOver(g);
         }
     }
 
-    public void newApple() {
-        appleX = random.nextInt((int) (SCREEN_WIDTH / UNIT_SIZE)) * UNIT_SIZE;
-        appleY = random.nextInt((int) (SCREEN_HEIGHT / UNIT_SIZE)) * UNIT_SIZE;
-    }
+    /**
+     * Draws the active game state (snake, apple, score).
+     */
+    private void drawGame(Graphics g) {
+        // Draw apple
+        g.drawImage(appleImage, appleX, appleY, this);
 
-    public void move() {
-        // Reset the snake's starting position
-        if (!running) {
-            resetSnake();
-        }
-        for (int i = bodyParts; i > 0; i--) {
-            x[i] = x[i - 1];
-            y[i] = y[i - 1];
-        }
-        switch (direction) {
-            case 'U':
-                y[0] = y[0] - UNIT_SIZE;
-                break;
-            case 'D':
-                y[0] = y[0] + UNIT_SIZE;
-                break;
-            case 'L':
-                x[0] = x[0] - UNIT_SIZE;
-                break;
-            case 'R':
-                x[0] = x[0] + UNIT_SIZE;
-                break;
-        }
-    }
-
-    public void checkApple() {
-        if ((x[0] == appleX) && (y[0] == appleY)) {
-            bodyParts++;
-            applesEaten++;
-            newApple();
-            eatSound("eat.wav");
-        }
-    }
-
-    public void checkCollisions() { // Collisions
-        // Check if head collides with body
-        for (int i = bodyParts; i > 0; i--) {
-            if ((x[0] == x[i]) && (y[0] == y[i])) {
-                running = false;
+        // Draw snake
+        for (int i = 0; i < bodyParts; i++) {
+            if (i == 0) {
+                // Draw head with image
+                g.drawImage(snakeHeadImage, snakeX[i], snakeY[i], this);
+            } else {
+                // Draw body with random colors for visual effect
+                g.setColor(new Color(random.nextInt(255), random.nextInt(255), random.nextInt(255)));
+                g.fillRect(snakeX[i], snakeY[i], UNIT_SIZE, UNIT_SIZE);
             }
         }
-        // Check if head touches left border
-        if (x[0] < 0) {
-            running = false;
-        }
-        // Check if head touches right border
-        if (x[0] > SCREEN_WIDTH) {
-            running = false;
-        }
-        // Check if head touches top border
-        if (y[0] < 0) {
-            running = false;
-        }
-        // Check if head touches bottom border
-        if (y[0] > SCREEN_HEIGHT) {
-            running = false;
-        }
-        if (!running) {
-            clip.stop();
-            timer.stop(); // Stop the timer
-            gameOverSound("gameOver");
-        }
+
+        // Draw current score
+        g.setColor(Color.RED);
+        g.setFont(new Font("Arial", Font.BOLD, 40));
+        FontMetrics metrics = getFontMetrics(g.getFont());
+        String scoreText = "Score: " + applesEaten;
+        g.drawString(scoreText, (SCREEN_WIDTH - metrics.stringWidth(scoreText)) / 2, 45);
+
+        // Draw high score
+        g.setColor(Color.BLUE);
+        g.setFont(new Font("Arial", Font.ITALIC, 20));
+        g.drawString("High Score: " + highScore, SCREEN_WIDTH - 150, 30);
     }
 
-    public void playSound(String soundFilePath) {
-        try {
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File(soundFilePath));
-            clip = AudioSystem.getClip();
-            clip.open(audioInputStream);
-            clip.start();
-        } catch (IOException | LineUnavailableException | UnsupportedAudioFileException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void gameOverSound(String soundFilePath) {
-        try {
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File(soundFilePath));
-            Clip clip2 = AudioSystem.getClip();
-            clip2.open(audioInputStream);
-            clip2.start();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void eatSound(String soundFilePath) {
-        try {
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File(soundFilePath));
-            Clip clip3 = AudioSystem.getClip();
-            clip3.open(audioInputStream);
-            clip3.start();
-        } catch (IOException | LineUnavailableException | UnsupportedAudioFileException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void gameOver(Graphics g) {
-        // Stop the background music
-        clip.stop();
-
-        g.setColor(Color.WHITE);
-        g.setFont(new Font("Ink Free", Font.BOLD, 30));
-        FontMetrics metrics1 = getFontMetrics(g.getFont());
-        if (applesEaten > highScore) {
-            g.drawString("!!!️ Congratulations you reached the highest score: " + applesEaten + " !!!", 330, 90);
-            g.setColor(Color.blue);
-            g.setFont(new Font("Ink Free", Font.BOLD, 30));
-            g.drawString("The Old Highest Score: " + highScore, 470, SCREEN_HEIGHT / 4);
-        } else {
-            g.setFont(new Font("Ink Free", Font.BOLD, 40));
-            g.drawString("Your Score: " + applesEaten, 520, g.getFont().getSize());
-            g.setColor(Color.blue);
-            g.setFont(new Font("Ink Free", Font.BOLD, 30));
-            g.drawString("The  Highest Score: " + highScore, 500, SCREEN_HEIGHT / 4);
-        }
-        // Game over text
-        g.setColor(Color.red);
-        g.setFont(new Font("Ink Free", Font.BOLD, 75));
-        FontMetrics metrics2 = getFontMetrics(g.getFont());
-        g.drawString("Game Over", (SCREEN_WIDTH - metrics2.stringWidth("Game Over")) / 2, SCREEN_HEIGHT / 2);
-        tryAgain(g);
+    /**
+     * Draws the game over screen with final score.
+     */
+    private void drawGameOver(Graphics g) {
+        // Update high score if needed
         if (applesEaten > highScore) {
             highScore = applesEaten;
         }
-    }
 
-    public void tryAgain(Graphics g) {
-        g.setColor(Color.green);
-        g.setFont(new Font("Ink Free", Font.BOLD, 45));
-        FontMetrics metrics3 = getFontMetrics(g.getFont());
-        g.drawString("Try Again (Space)", 470, 600);
-    }
+        // Draw score information
+        g.setColor(Color.WHITE);
+        g.setFont(new Font("Arial", Font.BOLD, 30));
+        FontMetrics metrics = getFontMetrics(g.getFont());
 
-    public void resetSnake() {
-        bodyParts = 6; // Reset the snake's body parts
-        for (int i = 0; i < bodyParts; i++) {
-            x[i] = 0; // Reset the snake's x coordinates
-            y[i] = 0; // Reset the snake's y coordinates
+        if (applesEaten >= highScore && applesEaten > 0) {
+            String newHighText = "New High Score: " + applesEaten + "!";
+            g.drawString(newHighText, (SCREEN_WIDTH - metrics.stringWidth(newHighText)) / 2, 90);
+        } else {
+            String scoreText = "Your Score: " + applesEaten;
+            g.drawString(scoreText, (SCREEN_WIDTH - metrics.stringWidth(scoreText)) / 2, 45);
+            
+            g.setColor(Color.BLUE);
+            String highScoreText = "High Score: " + highScore;
+            g.drawString(highScoreText, (SCREEN_WIDTH - metrics.stringWidth(highScoreText)) / 2, SCREEN_HEIGHT / 4);
         }
-        direction = 'R'; // Set the snake's starting direction
+
+        // Draw "Game Over" text
+        g.setColor(Color.RED);
+        g.setFont(new Font("Arial", Font.BOLD, 75));
+        FontMetrics gameOverMetrics = getFontMetrics(g.getFont());
+        String gameOverText = "Game Over";
+        g.drawString(gameOverText, (SCREEN_WIDTH - gameOverMetrics.stringWidth(gameOverText)) / 2, SCREEN_HEIGHT / 2);
+
+        // Draw restart prompt
+        g.setColor(Color.GREEN);
+        g.setFont(new Font("Arial", Font.BOLD, 45));
+        FontMetrics restartMetrics = getFontMetrics(g.getFont());
+        String restartText = "Press SPACE to Restart";
+        g.drawString(restartText, (SCREEN_WIDTH - restartMetrics.stringWidth(restartText)) / 2, 600);
     }
 
-    public void resetScore() {
+    /**
+     * Spawns a new apple at a random location.
+     */
+    private void spawnApple() {
+        appleX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE) * UNIT_SIZE;
+        appleY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE) * UNIT_SIZE;
+    }
+
+    /**
+     * Moves the snake in the current direction.
+     */
+    private void move() {
+        // Shift body segments
+        for (int i = bodyParts; i > 0; i--) {
+            snakeX[i] = snakeX[i - 1];
+            snakeY[i] = snakeY[i - 1];
+        }
+
+        // Move head based on direction
+        switch (direction) {
+            case 'U' -> snakeY[0] -= UNIT_SIZE;
+            case 'D' -> snakeY[0] += UNIT_SIZE;
+            case 'L' -> snakeX[0] -= UNIT_SIZE;
+            case 'R' -> snakeX[0] += UNIT_SIZE;
+        }
+    }
+
+    /**
+     * Checks if the snake has eaten the apple.
+     */
+    private void checkApple() {
+        if (snakeX[0] == appleX && snakeY[0] == appleY) {
+            bodyParts++;
+            applesEaten++;
+            spawnApple();
+            audioManager.playSound(EAT_SOUND_PATH);
+        }
+    }
+
+    /**
+     * Checks for collisions with walls and snake body.
+     */
+    private void checkCollisions() {
+        // Check self-collision
+        for (int i = bodyParts; i > 0; i--) {
+            if (snakeX[0] == snakeX[i] && snakeY[0] == snakeY[i]) {
+                running = false;
+                break;
+            }
+        }
+
+        // Check wall collisions
+        if (snakeX[0] < 0 || snakeX[0] >= SCREEN_WIDTH ||
+            snakeY[0] < 0 || snakeY[0] >= SCREEN_HEIGHT) {
+            running = false;
+        }
+
+        // Handle game over
+        if (!running) {
+            gameTimer.stop();
+            audioManager.stopBackgroundMusic();
+            audioManager.playSound(GAME_OVER_SOUND_PATH);
+        }
+    }
+
+    /**
+     * Resets snake to starting position.
+     */
+    private void resetSnake() {
+        bodyParts = 6;
+        for (int i = 0; i < bodyParts; i++) {
+            snakeX[i] = 0;
+            snakeY[i] = 0;
+        }
+        direction = 'R';
+    }
+
+    /**
+     * Resets the score counter.
+     */
+    private void resetScore() {
         applesEaten = 0;
     }
 
@@ -265,33 +278,29 @@ public class GamePanel extends JPanel implements ActionListener {
         repaint();
     }
 
-    public class MyKeyAdapter extends KeyAdapter {
+    /**
+     * Handles keyboard input for snake control and game restart.
+     */
+    private class GameKeyAdapter extends KeyAdapter {
         @Override
         public void keyPressed(KeyEvent e) {
             if (!running && e.getKeyCode() == KeyEvent.VK_SPACE) {
-                startGame(); // Restart the game
-            } else {
-                switch (e.getKeyCode()) {
-                    case KeyEvent.VK_LEFT:
-                        if (direction != 'R') {
-                            direction = 'L';
-                        }
-                        break;
-                    case KeyEvent.VK_RIGHT:
-                        if (direction != 'L') {
-                            direction = 'R';
-                        }
-                        break;
-                    case KeyEvent.VK_UP:
-                        if (direction != 'D') {
-                            direction = 'U';
-                        }
-                        break;
-                    case KeyEvent.VK_DOWN:
-                        if (direction != 'U') {
-                            direction = 'D';
-                        }
-                        break;
+                startGame();
+                return;
+            }
+
+            switch (e.getKeyCode()) {
+                case KeyEvent.VK_LEFT, KeyEvent.VK_A -> {
+                    if (direction != 'R') direction = 'L';
+                }
+                case KeyEvent.VK_RIGHT, KeyEvent.VK_D -> {
+                    if (direction != 'L') direction = 'R';
+                }
+                case KeyEvent.VK_UP, KeyEvent.VK_W -> {
+                    if (direction != 'D') direction = 'U';
+                }
+                case KeyEvent.VK_DOWN, KeyEvent.VK_S -> {
+                    if (direction != 'U') direction = 'D';
                 }
             }
         }
