@@ -15,31 +15,23 @@ import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 import javax.swing.Timer;
 
-/**
- * Main game panel that handles rendering, game logic, and user input.
- * Contains the snake movement, collision detection, and scoring system.
- */
 public class GamePanel extends JPanel implements ActionListener {
 
-    // Game dimensions
     private static final int SCREEN_WIDTH = 1300;
     private static final int SCREEN_HEIGHT = 750;
     private static final int UNIT_SIZE = 50;
     private static final int GAME_UNITS = (SCREEN_HEIGHT * SCREEN_WIDTH) / (UNIT_SIZE * UNIT_SIZE);
     private static final int GAME_DELAY_MS = 95;
 
-    // Asset paths
     private static final String APPLE_IMAGE_PATH = "assets/images/apple.png";
     private static final String SNAKE_HEAD_IMAGE_PATH = "assets/images/snake.png";
     private static final String BACKGROUND_MUSIC_PATH = "assets/sounds/background.wav";
     private static final String EAT_SOUND_PATH = "assets/sounds/eat.wav";
     private static final String GAME_OVER_SOUND_PATH = "assets/sounds/game_over.wav";
 
-    // Snake position arrays
     private final int[] snakeX = new int[GAME_UNITS];
     private final int[] snakeY = new int[GAME_UNITS];
 
-    // Game state
     private int bodyParts = 6;
     private int applesEaten = 0;
     private int highScore = 0;
@@ -48,12 +40,10 @@ public class GamePanel extends JPanel implements ActionListener {
     private char direction = 'R';
     private boolean running = false;
 
-    // Game components
     private Timer gameTimer;
     private final Random random;
     private final AudioManager audioManager;
 
-    // Cached images for performance
     private Image appleImage;
     private Image snakeHeadImage;
 
@@ -70,9 +60,6 @@ public class GamePanel extends JPanel implements ActionListener {
         startGame();
     }
 
-    /**
-     * Pre-loads and scales images for better performance.
-     */
     private void loadImages() {
         ImageIcon appleIcon = new ImageIcon(APPLE_IMAGE_PATH);
         appleImage = appleIcon.getImage().getScaledInstance(UNIT_SIZE, UNIT_SIZE, Image.SCALE_SMOOTH);
@@ -81,9 +68,6 @@ public class GamePanel extends JPanel implements ActionListener {
         snakeHeadImage = snakeIcon.getImage().getScaledInstance(UNIT_SIZE, UNIT_SIZE, Image.SCALE_SMOOTH);
     }
 
-    /**
-     * Initializes and starts a new game.
-     */
     public void startGame() {
         resetSnake();
         resetScore();
@@ -100,9 +84,6 @@ public class GamePanel extends JPanel implements ActionListener {
         draw(g);
     }
 
-    /**
-     * Renders the game state to the screen.
-     */
     private void draw(Graphics g) {
         if (running) {
             drawGame(g);
@@ -111,48 +92,39 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
-    /**
-     * Draws the active game state (snake, apple, score).
-     */
     private void drawGame(Graphics g) {
-        // Draw apple
+        // Apple
         g.drawImage(appleImage, appleX, appleY, this);
 
-        // Draw snake
+        // Snake
         for (int i = 0; i < bodyParts; i++) {
             if (i == 0) {
-                // Draw head with image
                 g.drawImage(snakeHeadImage, snakeX[i], snakeY[i], this);
             } else {
-                // Draw body with random colors for visual effect
+                // Random colors for body segments
                 g.setColor(new Color(random.nextInt(255), random.nextInt(255), random.nextInt(255)));
                 g.fillRect(snakeX[i], snakeY[i], UNIT_SIZE, UNIT_SIZE);
             }
         }
 
-        // Draw current score
+        // Score
         g.setColor(Color.RED);
         g.setFont(new Font("Arial", Font.BOLD, 40));
         FontMetrics metrics = getFontMetrics(g.getFont());
         String scoreText = "Score: " + applesEaten;
         g.drawString(scoreText, (SCREEN_WIDTH - metrics.stringWidth(scoreText)) / 2, 45);
 
-        // Draw high score
+        // High score
         g.setColor(Color.BLUE);
         g.setFont(new Font("Arial", Font.ITALIC, 20));
         g.drawString("High Score: " + highScore, SCREEN_WIDTH - 150, 30);
     }
 
-    /**
-     * Draws the game over screen with final score.
-     */
     private void drawGameOver(Graphics g) {
-        // Update high score if needed
         if (applesEaten > highScore) {
             highScore = applesEaten;
         }
 
-        // Draw score information
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 30));
         FontMetrics metrics = getFontMetrics(g.getFont());
@@ -169,14 +141,12 @@ public class GamePanel extends JPanel implements ActionListener {
             g.drawString(highScoreText, (SCREEN_WIDTH - metrics.stringWidth(highScoreText)) / 2, SCREEN_HEIGHT / 4);
         }
 
-        // Draw "Game Over" text
         g.setColor(Color.RED);
         g.setFont(new Font("Arial", Font.BOLD, 75));
         FontMetrics gameOverMetrics = getFontMetrics(g.getFont());
         String gameOverText = "Game Over";
         g.drawString(gameOverText, (SCREEN_WIDTH - gameOverMetrics.stringWidth(gameOverText)) / 2, SCREEN_HEIGHT / 2);
 
-        // Draw restart prompt
         g.setColor(Color.GREEN);
         g.setFont(new Font("Arial", Font.BOLD, 45));
         FontMetrics restartMetrics = getFontMetrics(g.getFont());
@@ -184,25 +154,17 @@ public class GamePanel extends JPanel implements ActionListener {
         g.drawString(restartText, (SCREEN_WIDTH - restartMetrics.stringWidth(restartText)) / 2, 600);
     }
 
-    /**
-     * Spawns a new apple at a random location.
-     */
     private void spawnApple() {
         appleX = random.nextInt(SCREEN_WIDTH / UNIT_SIZE) * UNIT_SIZE;
         appleY = random.nextInt(SCREEN_HEIGHT / UNIT_SIZE) * UNIT_SIZE;
     }
 
-    /**
-     * Moves the snake in the current direction.
-     */
     private void move() {
-        // Shift body segments
         for (int i = bodyParts; i > 0; i--) {
             snakeX[i] = snakeX[i - 1];
             snakeY[i] = snakeY[i - 1];
         }
 
-        // Move head based on direction
         switch (direction) {
             case 'U' -> snakeY[0] -= UNIT_SIZE;
             case 'D' -> snakeY[0] += UNIT_SIZE;
@@ -211,9 +173,6 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
-    /**
-     * Checks if the snake has eaten the apple.
-     */
     private void checkApple() {
         if (snakeX[0] == appleX && snakeY[0] == appleY) {
             bodyParts++;
@@ -223,11 +182,8 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
-    /**
-     * Checks for collisions with walls and snake body.
-     */
     private void checkCollisions() {
-        // Check self-collision
+        // Self collision
         for (int i = bodyParts; i > 0; i--) {
             if (snakeX[0] == snakeX[i] && snakeY[0] == snakeY[i]) {
                 running = false;
@@ -235,13 +191,12 @@ public class GamePanel extends JPanel implements ActionListener {
             }
         }
 
-        // Check wall collisions
+        // Wall collision
         if (snakeX[0] < 0 || snakeX[0] >= SCREEN_WIDTH ||
             snakeY[0] < 0 || snakeY[0] >= SCREEN_HEIGHT) {
             running = false;
         }
 
-        // Handle game over
         if (!running) {
             gameTimer.stop();
             audioManager.stopBackgroundMusic();
@@ -249,9 +204,6 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
-    /**
-     * Resets snake to starting position.
-     */
     private void resetSnake() {
         bodyParts = 6;
         for (int i = 0; i < bodyParts; i++) {
@@ -261,9 +213,6 @@ public class GamePanel extends JPanel implements ActionListener {
         direction = 'R';
     }
 
-    /**
-     * Resets the score counter.
-     */
     private void resetScore() {
         applesEaten = 0;
     }
@@ -278,9 +227,6 @@ public class GamePanel extends JPanel implements ActionListener {
         repaint();
     }
 
-    /**
-     * Handles keyboard input for snake control and game restart.
-     */
     private class GameKeyAdapter extends KeyAdapter {
         @Override
         public void keyPressed(KeyEvent e) {
